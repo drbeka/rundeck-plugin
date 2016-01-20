@@ -50,8 +50,10 @@ public class RundeckJobProjectLinkerAction implements Action {
         if (!StringUtils.endsWith(rundeck.getUrl(), "/")) {
             url.append("/");
         }
-        url.append("job/show/");
-        url.append(rundeckJob.getId());
+        if (rundeckJob != null){
+          url.append("job/show/");
+          url.append(rundeckJob.getId());
+        }
         return url.toString();
     }
 
@@ -65,7 +67,11 @@ public class RundeckJobProjectLinkerAction implements Action {
     }
 
     public String getDisplayName() {
-        return "Job: [" + rundeckJob.getProject() + "] " + rundeckJob.getName();
+    	String name = "";
+    	if (rundeckJob != null){
+        name = "Job: [" + rundeckJob.getProject() + "] " + rundeckJob.getName();
+    	}
+    	return name;
     }
 
     public String getUrlName() {

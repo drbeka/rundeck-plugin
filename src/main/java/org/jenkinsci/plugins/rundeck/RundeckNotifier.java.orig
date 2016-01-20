@@ -66,14 +66,19 @@ public class RundeckNotifier extends Notifier {
 
     private final Boolean includeRundeckLogs;
     
-    private RundeckClient myRundeckInstance;  // instance of the actual job TODO
+    private RundeckClient myRundeckInstance;  // instance of the actual job
     private String serverURL;   
     private String jobUser;
     private String jobPassword;
+        
+    public String debug; // TODO DEBUG
     
     public RundeckNotifier(String jobId, String options, String nodeFilters, String tag,
             Boolean shouldWaitForRundeckJob, Boolean shouldFailTheBuild) {
-       this(jobId, options, nodeFilters, tag,             
+<<<<<<< HEAD
+       this(jobId, options, nodeFilters, tag, shouldWaitForRundeckJob, shouldFailTheBuild, false);
+=======
+       this(jobId, options, nodeFilters, tag,
             shouldWaitForRundeckJob, shouldFailTheBuild, false, null,  null, null);
     }
 
@@ -82,6 +87,7 @@ public class RundeckNotifier extends Notifier {
             String jobUser, String jobPassword) {
        this(jobId, options, nodeFilters, tag,
             shouldWaitForRundeckJob, shouldFailTheBuild, false, serverURL, jobUser, jobPassword);
+>>>>>>> GGJJ-58: Added job fields.
     }
 
     @DataBoundConstructor
@@ -103,7 +109,7 @@ public class RundeckNotifier extends Notifier {
     public RundeckClient getMyRundeckInstance() {
     	if (myRundeckInstance == null)
     	{
-    		// FIXME TEST, move to getProjectAction
+    		// FIXME TEST
     		RundeckClient myRundeck = null;
 			try {
 				myRundeck = getDescriptor().getRundeckClient(this.getServerURL(), this.getJobUser(), this.getJobPassword(), false);
@@ -122,16 +128,13 @@ public class RundeckNotifier extends Notifier {
 
 	private void logConfig (BuildListener listener, RundeckDescriptor descriptor, String info)
     {
-		String globalinfo = "no global rundeck instance";
-		if (descriptor.getGlobalRundeckInstance() != null)
-		{
-			globalinfo = "URL/user: " + descriptor.getGlobalRundeckInstance().getUrl()
-		    		+	 descriptor.getGlobalRundeckInstance().getLogin();
-		}
-    	listener.getLogger().println("Descriptor data: " + info + "\nglobal:\n" +  globalinfo);
+    	// FIXME hier ist nur ApiToken korrekt belegt, andere felder sind leer!
+    	listener.getLogger().println("log Descriptor data: " + info +  "\nglobal\nURL/token/user: " + descriptor.globalURL
+    		+	descriptor.globalApiToken + descriptor.globalUser);
     	listener.getLogger().println("job\nURL/user: " + this.serverURL
         		+	this.jobUser );
-    	  	 
+    	
+    	 
     	 Iterator<RundeckClient> iterator = RundeckDescriptor.hmRundeckInstances.values().iterator(); 
 		int i = 0;
     	 while (iterator.hasNext()) {
@@ -176,10 +179,20 @@ public class RundeckNotifier extends Notifier {
 			;
 		} 
        
-//        logConfig (listener, descriptor, " perform:  global rundeck instance " + descriptor.getRundeckInstance() + " job instance from map " + rundeck); // TODO
+        logConfig (listener, descriptor, " perform:  global instance " + descriptor.getRundeckInstance() + " aus map " + rundeck); // TODO
         
-//        listener.getLogger().println(" perform: with rundeck client:\n job-URL:" + this.getServerURL()
-//    			+ " job-user:" + this.jobUser + " job-pw:  " + this.jobPassword + " used rundeckinstance: " + rundeck);        
+        String url = descriptor.globalURL;
+        String user = descriptor.globalUser;
+        String pw = null;
+        String token = null;
+        if (this.getServerURL() != null && this.getServerURL().trim().length() > 0)
+        {        	
+        	url = this.getServerURL();
+        	user = this.getJobUser();    
+        	if (this.jobPassword != null && this.jobPassword.trim().length() > 0) pw = this.jobPassword;
+        }      
+        listener.getLogger().println(" perform: with rundeck client:\n job-URL:" + this.getServerURL()
+    			+ " job-user:" + this.jobUser + " job-pw:  " + this.jobPassword + " used rundeckinstance: " + rundeck + " DEBUG:" + descriptor.debug);        
             
 
         if (rundeck == null) {
@@ -408,8 +421,9 @@ public class RundeckNotifier extends Notifier {
     public Action getProjectAction(AbstractProject<?, ?> project) {
         try {        	
         	// RundeckClient rundeck = getDescriptor().getRundeckInstance();
-        	RundeckClient rundeck = getMyRundeckInstance();
-        	RundeckDescriptor.log("getProjectAction", this.toString() + " use instance " + rundeck.toString() +   "for: job " + jobId );  // TODO debug
+        	 RundeckClient rundeck = getMyRundeckInstance();
+        	// 'FIXME  testen
+        	RundeckDescriptor.log("getProjectAction", this.toString() + " use instance " + rundeck.toString() +   "for: job " + jobId );
 
         	return new RundeckJobProjectLinkerAction(rundeck, jobId);            
         } catch (RundeckApiException e) {
@@ -494,22 +508,36 @@ public class RundeckNotifier extends Notifier {
     	private  static HashMap<String, RundeckClient> hmRundeckInstances = new HashMap<String, RundeckClient>(); 
         private RundeckClient rundeckInstance;	// normal instance
         private RundeckClient globalRundeckInstance;	// store for initial instance
-
-		String jobURL;
-
-		String jobinfos;
-		Integer apiversion;
+        private static String globalRundeckInstanceKey;
+        
+        String globalURL;   // FIXME ist als static nie belegt!!! aufräumen
+        String globalUser;   // FIXME ist als static nie belegt!!! aufräumen
+        String debug = "";
+	    String jobURL;
+        
+		String jobinfos;		
+		 Integer apiversion;
+		 
+		 String globalPassword;
+		 String globalApiToken;
 
         public RundeckDescriptor() {
             super();
             load();
         }
+        
+        public static String getGlobalRundeckInstanceKey() {
+			return globalRundeckInstanceKey;
+		}
+
+		public static void setGlobalRundeckInstanceKey(String globalRundeckInstanceKey) {
+			RundeckDescriptor.globalRundeckInstanceKey = globalRundeckInstanceKey;
+		}
 
 		public static void log(String module, String info){
-			// support debug
         	String out = module + ": " + info;
         	Date now = new Date();
-//        	System.err.println(now.toLocaleString() + ": " + out);
+        	System.err.println(now.toLocaleString() + ": " + out);
         }
         
         public static RundeckClient getRundeckInstanceForKey(String url, String user)
@@ -536,7 +564,7 @@ public class RundeckNotifier extends Notifier {
         @Override
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
         	
-        	RundeckDescriptor.log("configure", this.toString() + " init "   +   json.toString()); 
+        	RundeckDescriptor.log("configure", this.toString() + " init "   +   json.toString());  // FIXME debug
 
             try {
                 RundeckClientBuilder builder = RundeckClient.builder();
@@ -550,15 +578,23 @@ public class RundeckNotifier extends Notifier {
                 if (json.optInt("apiversion") > 0) {
                     builder.version(json.getInt("apiversion"));
                 }
-                setRundeckInstance(builder.build()); //###
+<<<<<<< HEAD
+                rundeckInstance = builder.build();
+=======
+                setRundeckInstance(builder.build());
+>>>>>>> GGJJ-58: Added job fields.
             } catch (IllegalArgumentException e) {
             	 setRundeckInstance(null);                
             }
+            // store global url etc
+            this.globalURL = json.getString("url");
+            this.globalUser = json.getString("login");
             
             save();
             return super.configure(req, json);
         }
-        //### von B
+
+<<<<<<< HEAD
         public void setConfig(String url, String authtoken, int apiversion) {
             RundeckClientBuilder builder = RundeckClient.builder();
             builder.url(url);
@@ -576,9 +612,8 @@ public class RundeckNotifier extends Notifier {
             rundeckInstance = builder.build();
             save();
         }
-//### bis hier von B
-//### jetzt von C
 
+=======
         /**
          * Generate key for map of rundeck client instances
          * if url = null or empty return null
@@ -636,15 +671,17 @@ public class RundeckNotifier extends Notifier {
          * @return
          * @throws FormException
          */
+>>>>>>> GGJJ-58: Added job fields.
         @Override
         public Publisher newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             String jobIdentifier = formData.getString("jobIdentifier");
             RundeckJob job = null;
             
             
-            RundeckClient rundeck = getRundeckClient(formData.getString("serverURL"), formData.getString("jobUser"), formData.getString("jobPassword"), true );                   
+            RundeckClient rundeck = getRundeckClient(formData.getString("serverURL"), formData.getString("jobUser"), formData.getString("jobPassword"), true );
+                     
             
-            RundeckDescriptor.log("newInstance", " jobid "  + jobIdentifier + " use rundeckinstance " + rundeck + " notifier instance " + this); 
+            RundeckDescriptor.log("newInstance", " jobid "  + jobIdentifier + " use rundeckinstance " + rundeck + " notifier instance " + this); // FIXME
             try {
                 job = findJob(jobIdentifier, rundeck);
             } catch (RundeckApiException e) {
@@ -666,34 +703,13 @@ public class RundeckNotifier extends Notifier {
                                        formData.getString("jobUser"),
                                        formData.getString("jobPassword")
             			);            
-                                     	
+                         
+           	this.jobinfos = formData.getString("jobUser")  + " " + formData.getString("serverURL");   // TODO DEBUG                   
+         
+            	
             return notifier;
         }
         
-        /**
-         * Compare strings.
-         * strings can be null or empty. An empty string is handled like a null string.
-         * @param s1
-         * @param s2
-         * @return
-         */
-        private boolean stringsAreEqual(String s1, String s2)
-        {
-			boolean rc = false;
-			if (s1 == null && s2 == null) {
-				return true;
-			}
-			if (s1 != null && s2 != null) {
-				return (s1.trim().equals(s2.trim()));
-			}
-			if (StringUtils.isBlank(s1) && StringUtils.isBlank(s2)) {
-				// one string is null and one string is blank
-				
-				return true;
-			}
-
-			return rc;
-		}
         
         /**
          * create rundeckClient from actual data (global or job)
@@ -726,25 +742,25 @@ public class RundeckNotifier extends Notifier {
         	
         	// compare data with global data
         	RundeckClient globalInstance = getGlobalRundeckInstance();
-        	//
+        	// TODO globalInstance kann null sein, wenn global noch nichts gesetzt ist!!!
         	if (globalInstance == null)
-        	{
-        		/*
-        		 * search individual or create new individual if user and pw are set 
-        		 */
-        		RundeckClient rundeck = RundeckDescriptor.getRundeckInstanceForKey(url, user);
-
-        		if (rundeck == null)
         		{
-        			rundeck = buildNewRundeckClient(url, user, password, "serverURL");        			   
-        			hmRundeckInstances.put(RundeckDescriptor.getRdKey(url, user), rundeck);
-        		}
-        		RundeckDescriptor.log("getRundeckClient", this.toString() + " no globalinstance, use individual " + rundeck.toString() +   "for: url " + url + " user " + user );
+        			/*
+        			 * search individual or create new individual if user and pw are set 
+        			 */
+        		   RundeckClient rundeck = RundeckDescriptor.getRundeckInstanceForKey(url, user);
+        		
+        		   if (rundeck == null)
+        		   {
+        			   rundeck = buildNewRundeckClient(url, user, password, "serverURL");        			   
+        			   hmRundeckInstances.put(RundeckDescriptor.getRdKey(url, user), rundeck);
+        		   }
+        		   RundeckDescriptor.log("getRundeckClient", this.toString() + " no globalinstance, use individual " + rundeck.toString() +   "for: url " + url + " user " + user );
 
-        		return rundeck;
-        	}
-        	// global instance is set:	
-        	boolean useGlobal = false;
+        		   return rundeck;
+        		}
+        		
+        	
         	if (serverurl == null || serverurl.trim().length() == 0)
         	{
         		// take Url from global configuration
@@ -753,19 +769,23 @@ public class RundeckNotifier extends Notifier {
         	String login = user;
         	if (user == null || user.trim().length() == 0)
         	{
-        		// take user from global configuration and take global instance
+        		// take user from global configuration
         		login = globalInstance.getLogin();
-        		useGlobal = true;
         	}
-        	
-        	if (!useGlobal  && (this.stringsAreEqual(globalInstance.getUrl(),url) && this.stringsAreEqual(globalInstance.getLogin(),user))){
-        		RundeckDescriptor.log("getRundeckClient", " use globalinstance " + globalInstance.toString() +   "for: url >" + serverurl + "< user >" + user + "<" + " = global login  <" + globalInstance.getLogin() + "> ? " + this.stringsAreEqual(globalInstance.getLogin(),user) );
+        	boolean useGlobal = false;
+        	if (globalInstance.getUrl().equals(url) && ((globalInstance.getLogin() == null) || (globalInstance.getLogin() != null && globalInstance.getLogin().equals(login)))){
+        		
         		useGlobal = true;
+				if ((user != null && user.trim().length() > 0) && ((globalInstance.getLogin() == null) || !globalInstance.getLogin().equals(user))) {
+     //FIXME ?? prüfen
+    		 		useGlobal = false;
+				}
 			}
         	
         	if (useGlobal){
         		// global instance fits wanted server connection
-        		RundeckDescriptor.log("getRundeckClient", this.toString() + " use globalinstance " + globalInstance.toString() +   "for: url >" + serverurl + "< user >" + user + "<" );
+        		RundeckDescriptor.log("getRundeckClient", this.toString() + " use globalinstance " + globalInstance.toString() +   "for: url " + serverurl + " user " + user );
+
         		return globalInstance;
         	}
         		       	
@@ -782,7 +802,7 @@ public class RundeckNotifier extends Notifier {
         		return rundeck;        		
         	}
         	
-        	RundeckDescriptor.log("getRundeckClient", this.toString() + " no instance found "   +   "for: url <" + serverurl + "> user <" + user + "> create new with <" + url + "< >" + login + "< >"  + password + "< global is:" + getGlobalRundeckInstance().toString());
+        	RundeckDescriptor.log("getRundeckClient", this.toString() + " no instance found "   +   "for: url " + serverurl + " user " + user + " create new with " + url + login + password + "global is " + getGlobalRundeckInstance().toString());
 
         	// no fitting rundeck client found until now, create new one.
 			rc = buildNewRundeckClient(url, login, password, "serverURL");			
@@ -812,7 +832,7 @@ public class RundeckNotifier extends Notifier {
 			}
 			RundeckDescriptor.log("buildNewRundeckClient", this.toString() +
 					" start build new RundeckClient for url " + url + " user " + user
-							+ " globale is " + globalinfo); 
+							+ " globale is " + globalinfo); // TODO debug
 			// create new client
 			RundeckClientBuilder builder = RundeckClient.builder();
 
@@ -881,15 +901,22 @@ public class RundeckNotifier extends Notifier {
             RundeckClientBuilder builder = RundeckClient.builder().url(url);
             if (null != apiversion && apiversion > 0) {
                 builder.version(apiversion);
-                this.apiversion = apiversion;
+<<<<<<< HEAD
             } else {
+=======
+                this.apiversion = apiversion;
+            }else {
+>>>>>>> GGJJ-58: Added job fields.
                 builder.version(RundeckClient.API_VERSION);
             }
             try {
                 if (null != token) {
                     rundeck = builder.token(token).build();
+                    this.globalApiToken = token;
                 } else {
                     rundeck = builder.login(login, password).build();
+                    this.globalUser = login;
+                    this.globalPassword = password;
                 }
             } catch (IllegalArgumentException e) {
                 return FormValidation.error("Rundeck configuration is not valid ! %s", e.getMessage());
@@ -908,9 +935,9 @@ public class RundeckNotifier extends Notifier {
             }
             // infos
             String info = "URL: " +  rundeck.getUrl() + " user: " + rundeck.getLogin();
-            RundeckDescriptor.log("doTestConnection: info ",  info  + " rundeckinstance " + rundeck); 
+            RundeckDescriptor.log("doTestConnection: info ",  info  + " rundeckinstance " + rundeck); // FIXME
 
-            return FormValidation.ok("Your Rundeck instance is alive, and your credentials are valid !" + info); 
+            return FormValidation.ok("Your Rundeck instance is alive, and your credentials are valid !" + info); // FIXME DEBUG
         }
         
 		/**
@@ -935,11 +962,11 @@ public class RundeckNotifier extends Notifier {
 			} 			
 			
 			
-			RundeckDescriptor.log("checkJobIdentifier", " jobid "  + jobIdentifier + " rundeckinstance " + actClient + " url " + actClient.getUrl()); 
+			RundeckDescriptor.log("checkJobIdentifier", " jobid "  + jobIdentifier + " rundeckinstance " + actClient + " url " + actClient.getUrl()); // FIXME
 
 			String info = " job URL: " + url + " user: " + login + " rundeckInstance: " + actClient.toString();
 	
-			//TODO first check  connection (see doTestConnection)  
+			//TODO first check  connection (see doTestConnection)    falls keine globalConnection sind url, login + pw pflicht
 			
 			if (StringUtils.isBlank(url) && getGlobalRundeckInstance() == null) {
 				return FormValidation
@@ -957,12 +984,7 @@ public class RundeckNotifier extends Notifier {
 			if (StringUtils.isBlank(login) && !StringUtils.isBlank(password)) {
 				return FormValidation
 						.error("user is empty !");
-			}
-			if (StringUtils.isBlank(login) && !StringUtils.isBlank(url)) {
-				// ir url is set we need user too.
-				return FormValidation
-						.error("user is empty !");
-			}
+			}			
 			
 			try {
 				RundeckJob job = findJob(jobIdentifier, actClient);
@@ -982,13 +1004,13 @@ public class RundeckNotifier extends Notifier {
 						
 					
 					return FormValidation.ok(
-							"Your Rundeck job is : %s [%s] %s, user %s", job.getId(),
-							job.getProject(), job.getFullName(), actClient.getLogin());
+							"Your Rundeck job is : %s [%s] %s", job.getId(),
+							job.getProject(), job.getFullName());
 					}
 					else {
 						return FormValidation.error(
-								"invalid job, found job : %s [%s] %s, user %s", job.getId(),
-								job.getProject(), job.getFullName(), actClient.getLogin());
+								"invalid job, found job : %s [%s] %s", job.getId(),
+								job.getProject(), job.getFullName());
 					}
 				}
 			} catch (RundeckApiException e) {
